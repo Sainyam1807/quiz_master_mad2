@@ -1,0 +1,475 @@
+from flask import request
+from flask_restful import Api, Resource, reqparse
+from .models import *
+from flask_security import auth_required, roles_required, roles_accepted, current_user
+from datetime import datetime
+
+api=Api()
+
+def roles_list(roles):   # if we write ' "admin" in current_user.roles', it would return objects and we need string to compare 
+    role_list= []
+    for role in roles:
+        role_list.append(role.name)
+    return role_list 
+
+# subject parser
+subject_parser=reqparse.RequestParser() # deals with request body in restful  || for /create endpoints  || used to safely parse and validate incoming request data
+subject_parser.add_argument("name") # tells which attributes can be passed in the request body
+subject_parser.add_argument("description")
+subject_parser.add_argument("category")
+
+# chapter parser
+chapter_parser = reqparse.RequestParser()
+chapter_parser.add_argument("name")
+chapter_parser.add_argument("description") 
+chapter_parser.add_argument("subject_id")
+
+# quiz parser
+quiz_parser = reqparse.RequestParser()
+quiz_parser.add_argument("chapter_id", type=int)
+quiz_parser.add_argument("date_of_quiz", type=str)
+quiz_parser.add_argument("time_duration", type=str)
+quiz_parser.add_argument("remarks", type=str) 
+
+# question parser
+question_parser = reqparse.RequestParser()
+question_parser.add_argument("quiz_id", type=int)
+question_parser.add_argument("question_statement", type=str)
+question_parser.add_argument("option1", type=str)
+question_parser.add_argument("option2", type=str)
+question_parser.add_argument("option3", type=str)
+question_parser.add_argument("option4", type=str)
+question_parser.add_argument("correct_option", type=int)
+
+
+
+class SubjectApi(Resource):
+    @auth_required('token')
+    @roles_accepted('admin', 'user')  # both user and admin can see all subjects 
+    def get(self):
+        subjects = Subject.query.all() # this gives list of objects  [<>,<>,<>]
+        subjects_json = []  # we want [{},{}]
+
+        for subject in subjects:
+            this_subject = {}
+            this_subject["id"] = subject.id
+            this_subject["name"] = subject.name
+            this_subject["description"] = subject.description
+            this_subject["category"] = subject.category
+            subjects_json.append(this_subject)  
+
+        if subjects_json:
+            return subjects_json   # returns the subject list
+        
+        return {
+            "message": "No subjects found"
+        }, 404
+    
+    #creating the subject by admin only
+    @auth_required('token')
+    @roles_required('admin')  # only admin is allowed to create
+    def post(self):
+        args = subject_parser.parse_args()
+        try:
+            subject = Subject(
+                name=args["name"],
+                description=args["description"],
+                category=args["category"]
+            )
+            db.session.add(subject)
+            db.session.commit()
+            return {
+                "message": "Subject created successfully!"
+            }
+
+        except Exception as e:    # if one or more field in the request body is pending
+            return {
+                "message": "One or more required fields are missing"
+            }, 400
+   
+    # updating the subject
+    @auth_required('token')
+    @roles_required('admin') 
+    def put(self, subject_id):
+        args = subject_parser.parse_args()  # this is a dictionary
+        subject = Subject.query.get(subject_id) # this is an object
+        if not subject:
+            return {"message": "Subject not found"}, 404
+        
+        # to check whether only one of the fields are there and update them only
+        if args["name"]:
+            subject.name = args["name"]
+        if args["description"]:
+            subject.description = args["description"]
+        if args["category"]:
+            subject.category = args["category"]
+        db.session.commit()
+
+        return {
+            "message": "Subject updated successfully!"
+        }, 200
+    
+    # deleting a subject
+    @auth_required('token')
+    @roles_required('admin')  
+    def delete(self, subject_id):
+        subject = Subject.query.get(subject_id)
+        
+        if subject:
+            db.session.delete(subject)
+            db.session.commit()
+            return {
+                "message": "Subject deleted successfully!"
+            }, 200
+        else:
+            return {
+                "message": "Subject not found!"
+            }, 404
+
+
+class ChapterApi(Resource):
+    @auth_required('token')
+    @roles_accepted('admin', 'user')
+    def get(self):
+        # this is a query parameter used to filter resources 
+        subject_id = request.args.get('subject_id')  # a user can only see the chapters for a particular subject that he has selected which is passed as a query parameter
+        
+        if subject_id:
+            chapters = Chapter.query.filter_by(subject_id=subject_id).all()
+        else:
+            if "admin" in roles_list(current_user.roles):  # if admin is present then he can view all gthe chapters
+                chapters = Chapter.query.all()
+            else:
+                return {"message": "Subject ID is required"}, 400
+
+        chapters_json = []
+        for chapter in chapters:
+            chapters_json.append({
+                "id": chapter.id,
+                "name": chapter.name,
+                "description": chapter.description,
+                "subject_id": chapter.subject_id,
+                "total_quizzes": chapter.total_quizzes
+            })
+
+        if chapters_json:
+            return chapters_json
+        return {"message": "No chapters found"}, 404
+    
+    # creating the chapters
+    @auth_required('token')
+    @roles_required('admin') 
+    def post(self):
+        args = chapter_parser.parse_args()
+
+        try:
+            chapter = Chapter(
+                name=args["name"],
+                description=args.get("description", ""), 
+                subject_id=args["subject_id"],
+                total_quizzes=0  
+            )
+
+            db.session.add(chapter)  
+            db.session.commit()
+
+            return {
+                "message": "Chapter created successfully!"
+            }, 201
+
+        except Exception as e:
+            return {
+                "message": "One or more required fields are missing"
+            }, 400
+        
+    # updating chapters by admin    
+    @auth_required('token')
+    @roles_required('admin') 
+    def put(self, chapter_id): # chapter id is a path parameter || 	identifies a specific resource and performs update, delete
+        args = chapter_parser.parse_args()
+        chapter = Chapter.query.get(chapter_id)
+
+        if not chapter:
+            return {"message": "Chapter not found"}, 404
+
+        if args["name"]:
+            chapter.name = args["name"]
+        if args["description"]:
+            chapter.description = args["description"]
+        if args["subject_id"]:
+            chapter.subject_id = args["subject_id"]
+
+        db.session.commit()
+
+        return {"message": "Chapter updated successfully!"}, 200
+    
+    # deleting a chapter
+    @auth_required('token')
+    @roles_required('admin')  
+    def delete(self, chapter_id):
+        chapter = Chapter.query.get(chapter_id)
+        
+        if chapter:
+            db.session.delete(chapter)
+            db.session.commit()
+            return {
+                "message": "Chapter deleted successfully!"
+            }, 200
+        else:
+            return {
+                "message": "Chapter not found!"
+            }, 404
+
+
+    
+class QuizApi(Resource):
+    @auth_required('token')
+    @roles_accepted('admin', 'user')
+    def get(self):
+        chapter_id = request.args.get('chapter_id')
+        quizzes = []
+        if "admin" in roles_list(current_user.roles):
+            quizzes = Quiz.query.all()
+
+        elif chapter_id:
+            quizzes = Quiz.query.filter_by(chapter_id=chapter_id).all()
+        else:
+            return {"message": "Chapter ID is required"}, 400
+
+        quizzes_json = []
+        for quiz in quizzes:
+            quizzes_json.append({
+                "id": quiz.id,
+                "chapter_id": quiz.chapter_id,
+                "date_of_quiz": str(quiz.date_of_quiz),  # str conversion is required as flask/JSON can't directly serialize python date or datetime objects into JSON.
+                "time_duration": quiz.time_duration,
+                "remarks": quiz.remarks
+            })
+
+        if quizzes_json:
+            return quizzes_json
+        return {"message": "No quizzes found"}, 404  
+
+    # creating the quizzes
+    @auth_required('token')
+    @roles_required('admin')  
+    def post(self):
+        args = quiz_parser.parse_args()
+
+        try:
+            date_obj = datetime.strptime(args["date_of_quiz"], "%Y-%m-%d").date() # model needs DateTime object to store this field and we are providing it as a string "2025-03-25" so conversion is required 
+
+            quiz = Quiz(
+                chapter_id=args["chapter_id"],
+                date_of_quiz=date_obj,        
+                time_duration=args["time_duration"],       
+                remarks=args.get("remarks", "") # default is empty string
+            )
+
+            db.session.add(quiz)
+            db.session.commit()
+
+            return {
+                "message": "Quiz created successfully!"
+            }, 201
+
+        except Exception as e:
+            return {
+                "message": "Failed to create quiz"
+            }, 400
+
+    # updating the quiz
+    @auth_required('token')
+    @roles_required('admin') 
+    def put(self, quiz_id):
+        args = quiz_parser.parse_args()
+        quiz = Quiz.query.get(quiz_id)
+
+        if not quiz:
+            return {"message": "Quiz not found"}, 404
+
+        if args["chapter_id"]:
+            quiz.chapter_id = args["chapter_id"]
+        if args["date_of_quiz"]:
+            quiz.date_of_quiz = datetime.strptime(args["date_of_quiz"], "%Y-%m-%d").date()  # conversion from string to object datatype 
+        if args["time_duration"]:
+            quiz.time_duration = args["time_duration"]
+        if args["remarks"]:
+            quiz.remarks = args["remarks"]
+
+        db.session.commit()
+
+        return {"message": "Quiz updated successfully!"}, 200
+    
+    # deleting a quiz
+    @auth_required('token')
+    @roles_required('admin') 
+    def delete(self, quiz_id):
+        quiz = Quiz.query.get(quiz_id)
+        
+        if quiz:
+            db.session.delete(quiz)
+            db.session.commit()
+            return {
+                "message": "Quiz deleted successfully!"
+            }, 200
+        else:
+            return {
+                "message": "Quiz not found!"
+            }, 404
+
+    
+class QuestionApi(Resource):
+    @auth_required('token')
+    @roles_accepted('admin', 'user')
+    def get(self):
+        quiz_id = request.args.get('quiz_id')
+        questions = []
+
+        if "admin" in roles_list(current_user.roles):
+            questions = Question.query.all()
+
+        elif quiz_id:
+            questions = Question.query.filter_by(quiz_id=quiz_id).all()
+        else:
+            return {"message": "Quiz ID is required for users"}, 400
+
+        questions_json = []
+        for question in questions:
+            questions_json.append({
+                "id": question.id,
+                "quiz_id": question.quiz_id,
+                "question_statement": question.question_statement,
+                "option1": question.option1,
+                "option2": question.option2,
+                "option3": question.option3,
+                "option4": question.option4,
+                # "correct_option": question.correct_option  
+            })
+
+        if questions_json:
+            return questions_json
+        return {"message": "No questions found"}, 404
+    
+    # creating a question
+    @auth_required('token')
+    @roles_required('admin')  
+    def post(self):
+        args = question_parser.parse_args()
+
+        if args["correct_option"] not in [1, 2, 3, 4]: # checking if the correct_option is in correct range or not
+            return {
+                "message": "Correct option must be between 1 and 4"
+            }, 400
+
+        try:
+            question = Question(
+                quiz_id=args["quiz_id"],
+                question_statement=args["question_statement"],
+                option1=args["option1"],
+                option2=args["option2"],
+                option3=args["option3"],
+                option4=args["option4"],
+                correct_option=args["correct_option"]
+            )
+
+            db.session.add(question)
+            db.session.commit()
+
+            return {"message": "Question created successfully!"}, 201
+
+        except Exception as e:
+            return {
+                "message": "Failed to create question"
+            }, 400
+        
+    # updating a question
+    @auth_required('token')
+    @roles_required('admin')  # Only admin can update questions
+    def put(self, question_id):
+        args = question_parser.parse_args()
+        question = Question.query.get(question_id)
+
+        if not question:
+            return {"message": "Question not found"}, 404
+
+        # Update only the provided fields
+        if args["quiz_id"]:
+            question.quiz_id = args["quiz_id"]
+        if args["question_statement"]:
+            question.question_statement = args["question_statement"]
+        if args["option1"]:
+            question.option1 = args["option1"]
+        if args["option2"]:
+            question.option2 = args["option2"]
+        if args["option3"]:
+            question.option3 = args["option3"]
+        if args["option4"]:
+            question.option4 = args["option4"]
+        if args["correct_option"]:
+            if args["correct_option"] not in [1, 2, 3, 4]:
+                return {"message": "Correct option must be between 1 and 4"}, 400
+            question.correct_option = args["correct_option"]
+
+        db.session.commit()
+
+        return {"message": "Question updated successfully!"}, 200
+    
+    # deleting a question
+    @auth_required('token')
+    @roles_required('admin') 
+    def delete(self, question_id):
+        question = Question.query.get(question_id)
+        
+        if question:
+            db.session.delete(question)
+            db.session.commit()
+            return {
+                "message": "Question deleted successfully!"
+            }, 200
+        else:
+            return {
+                "message": "Question not found!"
+            }, 404
+
+
+class ScoreApi(Resource):
+    @auth_required('token')
+    @roles_accepted('admin', 'user')
+    def get(self):
+        quiz_id = request.args.get('quiz_id')
+        scores = []
+
+        if "admin" in roles_list(current_user.roles):  # admin can see all the scores
+            if quiz_id:
+                scores = Score.query.filter_by(quiz_id=quiz_id).all()   # admin can see specific users scores
+            else:
+                scores = Score.query.all()
+
+        else:
+            if quiz_id:
+                scores = Score.query.filter_by(user_id=current_user.id, quiz_id=quiz_id).all() #  user can filter by quiz_id and user_id
+            else:
+                scores = Score.query.filter_by(user_id=current_user.id).all()  # user can filter by user_id
+
+        scores_json = []
+        for score in scores:
+            scores_json.append({
+                "id": score.id,
+                "quiz_id": score.quiz_id,
+                "user_id": score.user_id,
+                "time_stamp_of_attempt": str(score.time_stamp_of_attempt),  # str conversion is required as flask/JSON can't directly serialize python date or datetime objects into JSON.
+                "total_scored": score.total_scored
+            })
+
+        if scores_json:
+            return scores_json
+        return {"message": "No scores found"}, 404
+
+
+
+api.add_resource(SubjectApi,'/api/subjects/get', '/api/subjects/create', '/api/subjects/update/<int:subject_id>', '/api/subjects/delete/<int:subject_id>')
+api.add_resource(ChapterApi,'/api/chapters/get','/api/chapters/create', '/api/chapters/update/<int:chapter_id>', '/api/chapters/delete/<int:chapter_id>')
+api.add_resource(QuizApi,'/api/quizzes/get', '/api/quizzes/create', '/api/quizzes/update/<int:quiz_id>', '/api/quizzes/delete/<int:quiz_id>')
+api.add_resource(QuestionApi,'/api/questions/get', '/api/questions/create', '/api/questions/update/<int:question_id>', '/api/questions/delete/<int:question_id>')
+api.add_resource(ScoreApi,'/api/scores/get')
