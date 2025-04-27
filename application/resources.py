@@ -3,14 +3,9 @@ from flask_restful import Api, Resource, reqparse
 from .models import *
 from flask_security import auth_required, roles_required, roles_accepted, current_user
 from datetime import datetime
+from .utils import roles_list
 
 api=Api()
-
-def roles_list(roles):   # if we write ' "admin" in current_user.roles', it would return objects and we need string to compare 
-    role_list= []
-    for role in roles:
-        role_list.append(role.name)
-    return role_list 
 
 # subject parser
 subject_parser=reqparse.RequestParser() # deals with request body in restful  || for /create endpoints  || used to safely parse and validate incoming request data

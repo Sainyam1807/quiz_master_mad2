@@ -6,6 +6,7 @@ from application.config import LocalDevelopmentConfig
 from flask_security import Security, SQLAlchemyUserDatastore #these are kind of APIs
 from flask_security import hash_password
 from werkzeug.security import generate_password_hash 
+from datetime import date
 
 
 
@@ -35,12 +36,12 @@ with app.app_context(): # creating context of the app whenever doing database op
     # till here 2 roles have been created now we can create users by this 
 
     if not app.security.datastore.find_user(email='user0@admin.com'): # only one attribute is required to check the user
-        app.security.datastore.create_user(email='user0@admin.com', username='admin1', password=generate_password_hash('12345'), roles=['admin']) # this 'admin'corresponds to role Admin
+        app.security.datastore.create_user(email='user0@admin.com', username='admin1', dob=date(2004, 7, 18), qualification='Phd', password=generate_password_hash('12345'), roles=['admin']) # this 'admin'corresponds to role Admin
     
     # for creating a User or customer
     # no need now as we have a register user endpoint in routes.py
     if not app.security.datastore.find_user(email='user1@user.com'):
-        app.security.datastore.create_user(email='user1@user.com', username='user1', password=generate_password_hash('12345'), roles=['user'])
+        app.security.datastore.create_user(email='user1@user.com', username='user1', dob=date(2004, 7, 18), qualification='bachelors', password=generate_password_hash('12345'), roles=['user'])
 
     db.session.commit()    
 

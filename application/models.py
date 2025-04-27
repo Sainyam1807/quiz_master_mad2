@@ -8,8 +8,8 @@ class User(db.Model,UserMixin): # UserMixin: apply some methods on user and hep 
     email=db.Column(db.String(100), unique=True, nullable=False)
     password=db.Column(db.String(255), nullable=False)
     username=db.Column(db.String(100), unique=True, nullable=False)
-    # dob = db.Column(db.Date) 
-    # qualification = db.Column(db.String(100))
+    dob = db.Column(db.Date)
+    qualification = db.Column(db.String(100))
     fs_uniquifier=db.Column(db.String, unique=True, nullable=True)  # used to create tokens || alternative for Role=0,1
     active=db.Column(db.Boolean, nullable=False)  # whether user is active or not || admin can change this attribute for any user
     roles=db.relationship('Role', backref='bearer', secondary='user_roles') # secondary refers to where the association is stored || user_roles is the tablename when the UserRole class is converted to table 
