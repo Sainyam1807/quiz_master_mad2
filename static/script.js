@@ -4,8 +4,13 @@ import register from './components/register.js'
 import navbar from './components/navbar.js'
 import footer from './components/footer.js'
 import admindashboard from './components/admin_dashboard.js'
-import chapters from './components/chapters.js'
-import userdashboard from './components/user_dashboard.js';
+import userdashboard from './components/user_dashboard.js'
+import adminchapters from './components/admin_chapters.js'
+import userchapters from './components/user_chapters.js'
+import adminmanageusers from './components/manage_users_by_admin.js'
+import adminquiz from './components/admin_quiz.js'
+import createquestion from './components/create_question_by_admin.js'
+import editquestion from './components/edit_question_by_admin.js';
 
 
 
@@ -16,7 +21,14 @@ const routes=[
     {path:'/register', component: register},
     {path:'/admindashboard', component: admindashboard},
     {path: '/dashboard', component: userdashboard},
-    {path: '/chapters/:subject_id', component: chapters}
+    {path: '/adminchapters/:subject_id', component: adminchapters},
+    {path: '/chapters/:subject_id', component: userchapters},
+    {path: '/manageusers', component: adminmanageusers},
+    {path: '/adminquiz', component: adminquiz},
+    {path: '/addquestion/:quiz_id', component: createquestion},
+    {path: '/editquestion/:question_id', component: editquestion}
+
+
 ]
 
 const router = new VueRouter({

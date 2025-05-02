@@ -1,22 +1,70 @@
 export default {
   template: `
-  <nav class="navbar navbar-expand bg-primary px-3 py-2 rounded mt-3" style="border: 2px solid orange;">
-    <div class="d-flex w-100 align-items-center justify-content-between">
-      
-      <div class="d-flex align-items-center">
-        <span class="me-4 text-dark fw-bold">Quiz Master Application</span>
-        <router-link to="/" class="nav-link text-dark me-2">Home</router-link>
-        <router-link to="/quiz" class="nav-link text-dark me-2">Quiz</router-link>
-        <router-link to="/summary" class="nav-link text-dark me-2">Summary</router-link>
-        <router-link to="/search" class="nav-link text-dark me-2">Search</router-link>
-      </div>
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #0d6efd; border: 2px solid orange;">
+      <div class="container-fluid">
+        <router-link to="/" class="navbar-brand fw-bold text-black">Quiz Master Application</router-link>
 
-      <div class="d-flex align-items-center">
-        <router-link to="/profile" class="nav-link text-dark me-3">Profile</router-link>
-        <router-link to="/logout" class="nav-link text-dark">Logout</router-link>
-      </div>
+        <div class="collapse navbar-collapse">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
 
-    </div>
-  </nav>
-  `
-}
+            <li class="nav-item" v-if="isAdmin">
+              <router-link to="/admindashboard" class="nav-link text-black">Home</router-link>
+            </li>
+            <li class="nav-item" v-if="!isAdmin">
+              <router-link to="/dashboard" class="nav-link text-black">Home</router-link>
+            </li>
+
+
+            <li class="nav-item" v-if="isAdmin">
+              <router-link to="/adminquiz" class="nav-link text-black">Quiz</router-link>
+            </li>
+            <li class="nav-item" v-if="!isAdmin">
+              <router-link to="/dashboard" class="nav-link text-black">Scores</router-link>
+            </li>
+
+            <li class="nav-item">
+              <router-link to="/summary" class="nav-link text-black">Summary</router-link>
+            </li>
+
+            <li class="nav-item">
+              <router-link to="/search" class="nav-link text-black">Search</router-link>
+            </li>
+          </ul>
+
+          <div class="d-flex">
+            <router-link to="/profile" class="nav-link text-black me-2">Profile</router-link>
+            <a href="/logout" class="nav-link text-black">Logout</a>
+          </div>
+        </div>
+      </div>
+    </nav>
+  `,
+
+  data() {
+    return {
+      isAdmin: false
+    };
+  },
+
+  mounted() {
+    this.checkUserRole(); // done so that two different navbars are created for user and admin
+  },
+
+  methods: {
+    checkUserRole() {
+      fetch('/api/home', {
+        headers: {
+          'Content-Type': 'application/json',
+          'authentication-token': localStorage.getItem('auth_token')
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        this.isAdmin = data.roles.includes("admin"); // checks
+      })
+      .catch(() => {
+        this.isAdmin = false;
+      });
+    }
+  }
+};

@@ -36,6 +36,14 @@ export default {
         <button @click="showEditSubjectForm = false" class="btn btn-secondary mt-2 ml-2">Cancel</button>
       </div>
 
+      <!-- ADDED Manage User section -->
+      <div v-if="isAdmin" class="text-center mb-5">
+        <router-link to="/manageusers" class="btn btn-primary">
+          Manage Users
+        </router-link>
+      </div>
+      <!-- Manage Users section -->
+
       <!-- Display all subjects in card format -->
       <div class="container mt-5">
         <h3 class="mb-4 text-center">Subjects Available</h3>
@@ -50,7 +58,7 @@ export default {
               <div class="card-footer bg-transparent border-0 text-center">
               
                 <router-link 
-                  :to="'/chapters/' + subject.id" 
+                  :to="'/adminchapters/' + subject.id" 
                   class="btn btn-primary m-1">
                   View Chapters
                 </router-link>
@@ -131,7 +139,7 @@ export default {
         // check if not admin
         if (!this.isAdmin) { 
           this.message = "You are not authorized to view Admin Dashboard.";  // gives error message if normal user tries to access admin dashboard by typing /admindashboard
-    
+          // this.$router.push('/dashboard');
         }
       })
       .catch(error => {

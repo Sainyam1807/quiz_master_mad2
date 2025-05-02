@@ -21,6 +21,8 @@ chapter_parser.add_argument("subject_id")
 
 # quiz parser
 quiz_parser = reqparse.RequestParser()
+quiz_parser.add_argument("name", type=str)
+quiz_parser.add_argument("no_of_questions", type=int)
 quiz_parser.add_argument("chapter_id", type=int)
 quiz_parser.add_argument("date_of_quiz", type=str)
 quiz_parser.add_argument("time_duration", type=str)
@@ -144,14 +146,14 @@ class ChapterApi(Resource):
                 "name": chapter.name,
                 "description": chapter.description,
                 "subject_id": chapter.subject_id,
-                "total_quizzes": chapter.total_quizzes
+                "total_quizzes": chapter.quizzes.count()  # when count() is called, a live query takes place in database everytime
             })
 
         if chapters_json:
             return chapters_json
         return {"message": "No chapters found"}, 404
     
-    # creating the chapters
+    #creating the chapters
     @auth_required('token')
     @roles_required('admin') 
     def post(self):
@@ -173,9 +175,12 @@ class ChapterApi(Resource):
             }, 201
 
         except Exception as e:
+            print("Error in creating quiz:", e)
             return {
-                "message": "One or more required fields are missing"
+                "message": "Failed to create quiz",
+                "error": str(e)
             }, 400
+
         
     # updating chapters by admin    
     @auth_required('token')
@@ -236,6 +241,8 @@ class QuizApi(Resource):
             quizzes_json.append({
                 "id": quiz.id,
                 "chapter_id": quiz.chapter_id,
+                "name": quiz.name,
+                "no_of_questions": quiz.no_of_questions,
                 "date_of_quiz": str(quiz.date_of_quiz),  # str conversion is required as flask/JSON can't directly serialize python date or datetime objects into JSON.
                 "time_duration": quiz.time_duration,
                 "remarks": quiz.remarks
@@ -255,6 +262,8 @@ class QuizApi(Resource):
             date_obj = datetime.strptime(args["date_of_quiz"], "%Y-%m-%d").date() # model needs DateTime object to store this field and we are providing it as a string "2025-03-25" so conversion is required 
 
             quiz = Quiz(
+                name=args["name"],
+                no_of_questions=args.get("no_of_questions", 0), # 0 is the default value
                 chapter_id=args["chapter_id"],
                 date_of_quiz=date_obj,        
                 time_duration=args["time_duration"],       
@@ -282,7 +291,11 @@ class QuizApi(Resource):
 
         if not quiz:
             return {"message": "Quiz not found"}, 404
-
+        
+        if args["name"]:
+            quiz.name = args["name"]
+        if args["no_of_questions"] is not None:
+            quiz.no_of_questions = args["no_of_questions"]
         if args["chapter_id"]:
             quiz.chapter_id = args["chapter_id"]
         if args["date_of_quiz"]:
@@ -321,11 +334,10 @@ class QuestionApi(Resource):
         quiz_id = request.args.get('quiz_id')
         questions = []
 
-        if "admin" in roles_list(current_user.roles):
-            questions = Question.query.all()
-
-        elif quiz_id:
+        if quiz_id:
             questions = Question.query.filter_by(quiz_id=quiz_id).all()
+        elif "admin" in roles_list(current_user.roles):
+            questions = Question.query.all()
         else:
             return {"message": "Quiz ID is required for users"}, 400
 
@@ -339,7 +351,7 @@ class QuestionApi(Resource):
                 "option2": question.option2,
                 "option3": question.option3,
                 "option4": question.option4,
-                # "correct_option": question.correct_option  
+                "correct_option": question.correct_option  
             })
 
         if questions_json:
@@ -369,6 +381,12 @@ class QuestionApi(Resource):
             )
 
             db.session.add(question)
+
+            # to dynamicall calculate the number of questions
+            quiz = Quiz.query.get(args["quiz_id"])
+            if quiz:
+                quiz.no_of_questions = quiz.questions.count()
+
             db.session.commit()
 
             return {"message": "Question created successfully!"}, 201
@@ -414,10 +432,18 @@ class QuestionApi(Resource):
     @auth_required('token')
     @roles_required('admin') 
     def delete(self, question_id):
+        
         question = Question.query.get(question_id)
         
         if question:
+            quiz_id = question.quiz_id 
             db.session.delete(question)
+            
+            # to dynamically count the number of questions
+            quiz = Quiz.query.get(quiz_id)
+            if quiz:
+                quiz.no_of_questions = quiz.questions.count()
+
             db.session.commit()
             return {
                 "message": "Question deleted successfully!"

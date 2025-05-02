@@ -1,6 +1,7 @@
 from flask import current_app as app, jsonify, request, render_template
 from flask_security import hash_password, auth_required, roles_required,roles_accepted, current_user, login_user # roles_accepted(for multiple roles) || login_user: loads user info into session after successful verification of email and password
 from application.database import db
+from application.models import User
 from werkzeug.security import check_password_hash, generate_password_hash  # generate_password_hash: hashes the password to store in database || check_password_hash : compares that hashed password with plain password
 from datetime import datetime
 from .utils import roles_list
@@ -57,14 +58,15 @@ def user_login():
             
             login_user(user)  # stores session info into cookies
 
-            user_roles = roles_list(user.roles)
+            user_roles = roles_list(user.roles)  # list of objects cannot be converted to JSON therefore converting to list of strings
 
             return jsonify({
                 "id": user.id,
                 "username": user.username,
                 "auth-token": user.get_auth_token(), # this function returns the auth-token
-                "roles": user_roles
+                "roles": user_roles 
             })
+        
         else:
             return jsonify({
                 "message": "Incorrect Password"
@@ -95,3 +97,34 @@ def create_user():
     return jsonify({
         "message": "User already exists "
     }),400
+
+# for managing users by ADMIN ONLY
+@app.route('/api/users/get', methods=['GET'])
+@auth_required('token')
+@roles_required('admin')
+def get_users():
+    users = User.query.all()
+    user_list = []
+    for user in users:
+        user_list.append({
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "qualification": user.qualification,
+            "dob": str(user.dob),
+            "roles": [role.name for role in user.roles]
+        })
+    return jsonify(user_list)
+
+# for deleting users by ADMIN ONLY
+@app.route('/api/users/delete/<int:user_id>', methods=['DELETE'])
+@auth_required('token')
+@roles_required('admin')
+def delete_user(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({"message": "User deleted successfully"}), 200
