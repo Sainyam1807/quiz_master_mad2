@@ -25,8 +25,11 @@ export default {
               <td>{{ user.dob }}</td>
               <td>{{ user.roles.join(', ') }}</td>
               <td>
-                <button class="btn btn-danger btn-sm" @click="deleteUser(user.id)">Remove</button>
+              <button v-if="!user.roles.includes('admin')" class="btn btn-danger btn-sm" @click="deleteUser(user.id)">
+              Remove
+              </button>
               </td>
+
             </tr>
           </tbody>
         </table>

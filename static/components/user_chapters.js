@@ -49,7 +49,7 @@ export default {
                       <td>{{ quiz.time_duration }}</td>
                       <td>
                         <button class="btn btn-info btn-sm me-2" @click="viewQuiz(quiz, chapter.name)">View</button>
-                        <button class="btn btn-success btn-sm">Start Quiz</button>
+                        <button class="btn btn-success btn-sm" @click="startQuiz(quiz.id)">Start Quiz</button>
                       </td>
                     </tr>
                   </tbody>
@@ -146,6 +146,11 @@ export default {
     viewQuiz(quiz, chapterName) {
       this.selectedQuiz = quiz;
       this.chapterName = chapterName;
+    },
+
+    startQuiz(quizId) {
+      this.$router.push(`/startquiz/${quizId}`);
     }
+
   }
 };

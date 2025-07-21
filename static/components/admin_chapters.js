@@ -3,8 +3,6 @@ export default {
     <div class="container mt-5">
       <h2> Welcome, {{ userData.username }}! </h2>
       <h2 class="text-center mb-4">Manage Chapters</h2>
-      
-
 
       <!-- Message Display -->
       <div v-if="message" class="alert alert-info text-center">{{ message }}</div>
@@ -35,21 +33,30 @@ export default {
       </div>
 
       <!-- Chapter Cards -->
-      <div class="row row-cols-1 row-cols-md-2 g-4">
-        <div class="col" v-for="chapter in chapters" :key="chapter.id">
-          <div class="card h-100 shadow">
-            <div class="card-body">
-              <h5 class="card-title"><strong>{{ chapter.name }}</strong></h5>
-              <p class="card-text">{{ chapter.description }}</p>
-              <p><strong>Total Quizzes:</strong> {{ chapter.total_quizzes }}</p>
-            </div>
-            <div class="card-footer text-center">
-              <button class="btn btn-warning btn-sm me-2" @click="startEdit(chapter)">✏️ Edit</button>
-              <button class="btn btn-danger btn-sm" @click="deleteChapter(chapter.id)">🗑️ Delete</button>
-            </div>
-          </div>
+      <!-- Chapter Cards -->
+<div class="row row-cols-1 row-cols-md-2 g-4">
+
+  <div v-if="chapters.length === 0" class="text-center w-100 text-muted">
+    <p>No chapters available for this subject.</p>
+  </div>
+
+  <template v-else>
+    <div class="col" v-for="chapter in chapters" :key="chapter.id">
+      <div class="card h-100 shadow">
+        <div class="card-body">
+          <h5 class="card-title"><strong>{{ chapter.name }}</strong></h5>
+          <p class="card-text">{{ chapter.description }}</p>
+          <p><strong>Total Quizzes:</strong> {{ chapter.total_quizzes }}</p>
+        </div>
+        <div class="card-footer text-center">
+          <button class="btn btn-warning btn-sm me-2" @click="startEdit(chapter)">✏️ Edit</button>
+          <button class="btn btn-danger btn-sm" @click="deleteChapter(chapter.id)">🗑️ Delete</button>
         </div>
       </div>
+    </div>
+  </template>
+</div>
+
     </div>
   `,
 
@@ -184,5 +191,3 @@ export default {
     }
   }
 };
-
-

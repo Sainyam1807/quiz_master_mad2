@@ -19,7 +19,7 @@ export default {
               <router-link to="/adminquiz" class="nav-link text-black">Quiz</router-link>
             </li>
             <li class="nav-item" v-if="!isAdmin">
-              <router-link to="/dashboard" class="nav-link text-black">Scores</router-link>
+              <router-link to="/user/scores" class="nav-link text-black">Scores</router-link>
             </li>
 
             <li class="nav-item">

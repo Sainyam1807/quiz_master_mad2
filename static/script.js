@@ -10,8 +10,9 @@ import userchapters from './components/user_chapters.js'
 import adminmanageusers from './components/manage_users_by_admin.js'
 import adminquiz from './components/admin_quiz.js'
 import createquestion from './components/create_question_by_admin.js'
-import editquestion from './components/edit_question_by_admin.js';
-
+import editquestion from './components/edit_question_by_admin.js'
+import userquiz from './components/user_quiz.js'
+import userScores from './components/user_scores.js';
 
 
 // array of objects || store all the frontend endpoints that render a component
@@ -26,8 +27,9 @@ const routes=[
     {path: '/manageusers', component: adminmanageusers},
     {path: '/adminquiz', component: adminquiz},
     {path: '/addquestion/:quiz_id', component: createquestion},
-    {path: '/editquestion/:question_id', component: editquestion}
-
+    {path: '/editquestion/:question_id', component: editquestion},
+    {path: '/startquiz/:quiz_id', component: userquiz},
+    {path: "/user/scores", component: userScores },
 
 ]
 

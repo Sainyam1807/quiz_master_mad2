@@ -149,9 +149,9 @@ class ChapterApi(Resource):
                 "total_quizzes": chapter.quizzes.count()  # when count() is called, a live query takes place in database everytime
             })
 
-        if chapters_json:
-            return chapters_json
-        return {"message": "No chapters found"}, 404
+        
+        return chapters_json
+        
     
     #creating the chapters
     @auth_required('token')
@@ -461,25 +461,32 @@ class ScoreApi(Resource):
         quiz_id = request.args.get('quiz_id')
         scores = []
 
-        if "admin" in roles_list(current_user.roles):  # admin can see all the scores
+        # Role-based filtering
+        if "admin" in roles_list(current_user.roles):
             if quiz_id:
-                scores = Score.query.filter_by(quiz_id=quiz_id).all()   # admin can see specific users scores
+                scores = Score.query.filter_by(quiz_id=quiz_id).all()
             else:
                 scores = Score.query.all()
-
         else:
             if quiz_id:
-                scores = Score.query.filter_by(user_id=current_user.id, quiz_id=quiz_id).all() #  user can filter by quiz_id and user_id
+                scores = Score.query.filter_by(user_id=current_user.id, quiz_id=quiz_id).all()
             else:
-                scores = Score.query.filter_by(user_id=current_user.id).all()  # user can filter by user_id
+                scores = Score.query.filter_by(user_id=current_user.id).all()
 
         scores_json = []
         for score in scores:
+            quiz = Quiz.query.get(score.quiz_id)
+            chapter = Chapter.query.get(quiz.chapter_id) if quiz else None
+            subject = Subject.query.get(chapter.subject_id) if chapter else None
+
             scores_json.append({
                 "id": score.id,
                 "quiz_id": score.quiz_id,
+                "quiz_name": quiz.name if quiz else "N/A",
+                "chapter_name": chapter.name if chapter else "N/A",
+                "subject_name": subject.name if subject else "N/A",
                 "user_id": score.user_id,
-                "time_stamp_of_attempt": str(score.time_stamp_of_attempt),  # str conversion is required as flask/JSON can't directly serialize python date or datetime objects into JSON.
+                "time_stamp_of_attempt": score.time_stamp_of_attempt.isoformat(),
                 "total_scored": score.total_scored
             })
 
@@ -488,9 +495,64 @@ class ScoreApi(Resource):
         return {"message": "No scores found"}, 404
 
 
+    # storing the quiz attempt
+    @auth_required('token')
+    @roles_required('user')  # only user can submit the quiz
+    def post(self):
+        data = request.get_json()
+        quiz_id = data.get('quiz_id')
+        # a dictionary mapping question IDs to the user's selected option
+        answers = data.get('answers', {})  # { question_id: selected_option }
+
+        if not quiz_id or not answers:
+            return { "message": "Quiz ID and answers are required" }, 400
+
+        questions = Question.query.filter_by(quiz_id=quiz_id).all()
+        total_score = 0
+
+        for question in questions:
+            qid = str(question.id)
+            if str(qid) in answers and int(answers[qid]) == question.correct_option:
+                total_score += 1
+
+        score = Score(
+            quiz_id=quiz_id,
+            user_id=current_user.id,
+            time_stamp_of_attempt=datetime.now(),
+            total_scored=total_score
+        )
+        db.session.add(score)
+        db.session.commit()
+
+        return { "message": "Quiz submitted successfully" }, 200
+
+# to get the quiz details for quiz duration and quiz name || GET quizzes by id 
+class QuizMetaApi(Resource):
+    @auth_required('token')
+    @roles_accepted('admin', 'user')
+    def get(self):
+        quiz_id = request.args.get('quiz_id')
+        if not quiz_id:
+            return {"message": "quiz_id is required"}, 400
+
+        quiz = Quiz.query.get(quiz_id)
+        if quiz:
+            return {
+                "id": quiz.id,
+                "chapter_id": quiz.chapter_id,
+                "name": quiz.name,
+                "no_of_questions": quiz.no_of_questions,
+                "date_of_quiz": str(quiz.date_of_quiz),
+                "time_duration": quiz.time_duration,
+                "remarks": quiz.remarks
+            }, 200
+        return {"message": "Quiz not found"}, 404
+
+
 
 api.add_resource(SubjectApi,'/api/subjects/get', '/api/subjects/create', '/api/subjects/update/<int:subject_id>', '/api/subjects/delete/<int:subject_id>')
 api.add_resource(ChapterApi,'/api/chapters/get','/api/chapters/create', '/api/chapters/update/<int:chapter_id>', '/api/chapters/delete/<int:chapter_id>')
 api.add_resource(QuizApi,'/api/quizzes/get', '/api/quizzes/create', '/api/quizzes/update/<int:quiz_id>', '/api/quizzes/delete/<int:quiz_id>')
 api.add_resource(QuestionApi,'/api/questions/get', '/api/questions/create', '/api/questions/update/<int:question_id>', '/api/questions/delete/<int:question_id>')
-api.add_resource(ScoreApi,'/api/scores/get')
+api.add_resource(ScoreApi,'/api/scores/get', '/api/scores/submit')
+api.add_resource(QuizMetaApi, '/api/quizzes/get_by_id')
