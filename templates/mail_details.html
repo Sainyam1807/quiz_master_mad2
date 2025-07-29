@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Monthly Activity Report</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #eee;
+        }
+    </style>
+</head>
+<body>
+    <h2>Monthly Activity Report</h2>
+    <p>Hello {{ data['username'] }},</p>
+    <p>Here is your quiz activity summary for this month:</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Sr No</th>
+                <th>Quiz Name</th>
+                <th>Chapter</th>
+                <th>Subject</th>
+                <th>Date of Quiz</th>
+                <th>Questions</th>
+                <th>Score</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set total_score = 0 %}
+            {% set total_quizzes = 0 %}
+            {% for q in data['quizzes'] %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ q['quiz_name'] }}</td>
+                <td>{{ q['chapter_name'] }}</td>
+                <td>{{ q['subject_name'] }}</td>
+                <td>{{ q['date_of_quiz'] }}</td>
+                <td>{{ q['total_questions'] }}</td>
+                <td>{{ q['score'] }}</td>
+            </tr>
+            {% set total_score = total_score + q['score'] %}
+            {% set total_quizzes = total_quizzes + 1 %}
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p><strong>Total Quizzes:</strong> {{ data['total_quizzes'] }}</p>
+    <p><strong>Average Score:</strong> {{ data['average_score'] }}</p>
+
+    <p>Thank you for using QuizMaster.</p>
+    <footer>
+        <p>© 2025 QuizMaster | Generated at IITM</p>
+    </footer>
+</body>
+</html>
