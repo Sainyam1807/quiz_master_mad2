@@ -60,8 +60,9 @@ export default {
 
           <!-- profile and logout -->
           <div class="d-flex">
-            <router-link to="/profile" class="nav-link text-black me-2">Profile</router-link>
-            <a href="/logout" class="nav-link text-black">Logout</a>
+            <router-link v-if="isLoggedIn" to="/profile" class="nav-link text-black me-2">Profile</router-link>
+            <button v-if="isLoggedIn" class="btn btn-sm btn-danger" @click="logoutUser">Logout</button>
+            <router-link v-else to="/login" class="btn btn-sm btn-light">Login</router-link>
           </div>
         </div>
       </div>
@@ -71,16 +72,23 @@ export default {
   data() {
     return {
       isAdmin: false,     // check user role
+      isLoggedIn: false,  // to track token presence
       searchQuery: "",    // search input
       searchType: "subject" // default search type
     };
   },
 
   mounted() {
+    this.checkLoginStatus(); // check login token
     this.checkUserRole(); // done so that two different navbars are created for user and admin
   },
 
   methods: {
+    // determine login status
+    checkLoginStatus() {
+      this.isLoggedIn = !!localStorage.getItem("auth_token");
+    },
+
     // determine if user is admin
     checkUserRole() {
       fetch('/api/home', {
@@ -108,6 +116,20 @@ export default {
           type: this.searchType
         }
       });
+    },
+
+    // logout logic
+    logoutUser() {
+      localStorage.clear(); // remove token
+      this.isLoggedIn = false;
+      this.isAdmin = false;
+
+      // prevent back navigation
+      this.$router.push("/login"); // redirect to login page
+      window.history.pushState(null, "", window.location.href); // clear history state
+      window.onpopstate = function () { // disable back button
+        window.history.go(1); // go forward in history
+      };
     }
   }
 };
